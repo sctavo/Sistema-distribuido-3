@@ -57,7 +57,9 @@ services:
       - "5000:5000"
     environment:
       - APP1_URL=http://app1_clientes:5001
+      - APP1_REPLICA_URL=http://app1_replica:5101
       - APP2_URL=http://app2_ordenes:5002
+      - APP2_REPLICA_URL=http://app2_replica:5102
       - APP3_URL=http://app3_reportes:5003
     networks:
       - sdnet
@@ -65,6 +67,27 @@ services:
       - app1_clientes
       - app2_ordenes
       - app3_reportes
+
+  # -------------------------------
+  # Replicas
+  # -------------------------------
+  app1_replica:
+    build:
+      context: ./app1_replica
+    container_name: app1_replica
+    ports:
+      - "5101:5101"
+    networks:
+      - sdnet
+
+  app2_replica:
+    build:
+      context: ./app2_replica
+    container_name: app2_replica
+    ports:
+      - "5102:5102"
+    networks:
+      - sdnet
 
 networks:
   sdnet:

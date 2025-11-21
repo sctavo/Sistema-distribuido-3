@@ -9,36 +9,41 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 const APP1_URL = process.env.APP1_URL || "http://localhost:5001";
+const APP1_REPLICA_URL = process.env.APP1_REPLICA_URL || "http://app1_replica:5101";
+
 const APP2_URL = process.env.APP2_URL || "http://localhost:5002";
+const APP2_REPLICA_URL = process.env.APP2_REPLICA_URL || "http://app2_replica:5102";
+
 const APP3_URL = process.env.APP3_URL || "http://localhost:5003";
 
-// Función de ayuda para hacer llamadas con retry simple
-async function callWithRetry(config, retries = 1) {
+// Función de ayuda para hacer llamadas con Fallback simple
+async function callWithFallback(primaryConfig, replicaConfig) {
   try {
-    const response = await axios(config);
-    return response;
+    return await axios(primaryConfig);
   } catch (err) {
-    if (retries > 0) {
-      console.warn("Fallo llamada, reintentando...", config.url);
-      return callWithRetry(config, retries - 1);
+    console.warn("⚠️ Servicio principal caído. Activando réplica:", primaryConfig.url);
+    try {
+      return await axios(replicaConfig);
+    } catch (err2) {
+      throw new Error("Error en servicio principal y réplica.");
     }
-    throw err;
   }
 }
+
 
 // Rutas para exponer App1 a clientes externos
 app.get("/api/clientes", async (req, res) => {
   try {
-    const resp = await callWithRetry({
-      method: "get",
-      url: `${APP1_URL}/clientes`
-    });
+    const resp = await callWithFallback(
+      { method: "get", url: `${APP1_URL}/clientes` },
+      { method: "get", url: `${APP1_REPLICA_URL}/clientes` }
+    );
     res.status(resp.status).json(resp.data);
   } catch (err) {
-    console.error("Error en /api/clientes:", err.message);
-    res.status(502).json({ error: "Error comunicando con App1" });
+    res.status(502).json({ error: "Error comunicando con App1 y réplica" });
   }
 });
+
 
 app.post("/api/clientes", async (req, res) => {
   try {
@@ -57,14 +62,13 @@ app.post("/api/clientes", async (req, res) => {
 // Rutas para App2 (órdenes)
 app.get("/api/ordenes", async (req, res) => {
   try {
-    const resp = await callWithRetry({
-    method: "get",
-    url: `${APP2_URL}/ordenes`
-    });
+    const resp = await callWithFallback(
+      { method: "get", url: `${APP2_URL}/ordenes` },
+      { method: "get", url: `${APP2_REPLICA_URL}/ordenes` }
+    );
     res.status(resp.status).json(resp.data);
   } catch (err) {
-    console.error("Error en /api/ordenes:", err.message);
-    res.status(502).json({ error: "Error comunicando con App2" });
+    res.status(502).json({ error: "Error comunicando con App2 y réplica" });
   }
 });
 
