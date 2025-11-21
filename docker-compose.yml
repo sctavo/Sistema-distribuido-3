@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  # -------------------------------
+  # Aplicación 1 - Clientes (Python)
+  # -------------------------------
+  app1_clientes:
+    build:
+      context: ./app1_clientes
+    container_name: app1_clientes
+    ports:
+      - "5001:5001"
+    environment:
+      - FLASK_ENV=development
+    command: ["python", "main.py"]
+    networks:
+      - sdnet
+
+  # -------------------------------
+  # Aplicación 2 - Órdenes (Node)
+  # -------------------------------
+  app2_ordenes:
+    build:
+      context: ./app2_ordenes
+    container_name: app2_ordenes
+    ports:
+      - "5002:5002"
+    networks:
+      - sdnet
+
+  # -------------------------------
+  # Aplicación 3 - Reportes (Node)
+  # -------------------------------
+  app3_reportes:
+    build:
+      context: ./app3_reportes
+    container_name: app3_reportes
+    ports:
+      - "5003:5003"
+    environment:
+      - APP1_URL=http://app1_clientes:5001
+      - APP2_URL=http://app2_ordenes:5002
+    networks:
+      - sdnet
+    depends_on:
+      - app1_clientes
+      - app2_ordenes
+
+  # -------------------------------
+  # Middleware / API Gateway (Node)
+  # -------------------------------
+  middleware:
+    build:
+      context: ./middleware
+    container_name: middleware
+    ports:
+      - "5000:5000"
+    environment:
+      - APP1_URL=http://app1_clientes:5001
+      - APP2_URL=http://app2_ordenes:5002
+      - APP3_URL=http://app3_reportes:5003
+    networks:
+      - sdnet
+    depends_on:
+      - app1_clientes
+      - app2_ordenes
+      - app3_reportes
+
+networks:
+  sdnet:
+    driver: bridge
